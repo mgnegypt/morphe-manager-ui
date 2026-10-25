@@ -29,17 +29,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -67,11 +67,25 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mgneg.morpheui.ui.components.AppTile
+import com.mgneg.morpheui.ui.components.CircleIconButton
 import com.mgneg.morpheui.ui.data.AppEntry
+import com.mgneg.morpheui.ui.data.AppState
 import com.mgneg.morpheui.ui.data.MockData
 import com.mgneg.morpheui.ui.data.PatchItem
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+
+/** Patching steps in the order the reference patcher logs them. */
+private fun patchStepsAr(patchCount: Int) = listOf(
+    "قراءة ملف APK",
+    "دمج التكاملات",
+    "تطبيق $patchCount من التعديلات",
+    "تجميع الموارد",
+    "تجميع DEX",
+    "محاذاة APK",
+    "توقيع APK",
+    "تم"
+)
 
 @Composable
 fun PatcherFlow(
@@ -84,15 +98,20 @@ fun PatcherFlow(
     var selected by remember {
         mutableStateOf(MockData.youtubePatches.filter { it.defaultSelected && it.compatible }.map { it.name }.toSet())
     }
+    // An app that is not installed must be "downloaded" before it can be patched.
+    var downloaded by remember { mutableStateOf(app.installedVersion != null) }
 
     when (stage) {
         0 -> PatchSelectionScreen(
             app = app,
             expertMode = expertMode,
             selected = selected,
+            downloaded = downloaded,
+            onDownloaded = { downloaded = true },
             onSelectedChange = { selected = it },
             onBack = onExit,
-            onPatch = { stage = 1 }
+            onPatch = { stage = 1 },
+            onDemoAction = onDemoAction
         )
         1 -> PatchProgressScreen(
             app = app,
@@ -114,21 +133,35 @@ private fun PatchSelectionScreen(
     app: AppEntry,
     expertMode: Boolean,
     selected: Set<String>,
+    downloaded: Boolean,
+    onDownloaded: () -> Unit,
     onSelectedChange: (Set<String>) -> Unit,
     onBack: () -> Unit,
-    onPatch: () -> Unit
+    onPatch: () -> Unit,
+    onDemoAction: (String) -> Unit
 ) {
     var optionsPatch by remember { mutableStateOf<PatchItem?>(null) }
+    var downloading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(downloading) {
+        if (downloading) {
+            delay(2200)
+            downloading = false
+            onDownloaded()
+            onDemoAction("عرض تجريبي — لم يتم تنزيل أي ملف فعليًا")
+        }
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, contentDescription = "Back") }
+            CircleIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "رجوع", onBack)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Patcher", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text("${selected.size} patches selected", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("أداة التعديل", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("تم تحديد ${selected.size} من التعديلات", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         LazyColumn(
@@ -137,7 +170,7 @@ private fun PatchSelectionScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         AppTile(app.tileColor, app.glyph)
                         Spacer(Modifier.width(14.dp))
@@ -145,7 +178,32 @@ private fun PatchSelectionScreen(
                             Text(app.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text("v${app.suggestedVersion} • ${app.sizeMb} MB", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        TextButton(onClick = onBack) { Text("Change") }
+                        TextButton(onClick = onBack) { Text("تغيير") }
+                    }
+                }
+            }
+            if (!downloaded) {
+                item {
+                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("التطبيق غير مثبّت", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "يلزم تنزيل إصدار v${app.suggestedVersion} قبل تعديله.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (downloading) {
+                                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                            } else {
+                                Button(onClick = { downloading = true }) {
+                                    Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("تنزيل")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -153,7 +211,7 @@ private fun PatchSelectionScreen(
                 item {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            "Installed version (v${app.installedVersion}) differs from the suggested version (v${app.suggestedVersion}). Some patches may not work.",
+                            "الإصدار المثبت (v${app.installedVersion}) يختلف عن الإصدار المقترح (v${app.suggestedVersion}). قد لا تعمل بعض التعديلات.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             modifier = Modifier.padding(14.dp)
@@ -163,22 +221,22 @@ private fun PatchSelectionScreen(
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Patches", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("التعديلات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row {
                         TextButton(onClick = {
                             onSelectedChange(MockData.youtubePatches.filter { it.compatible }.map { it.name }.toSet())
-                        }) { Text("All") }
+                        }) { Text("الكل") }
                         TextButton(onClick = {
                             onSelectedChange(MockData.youtubePatches.filter { it.defaultSelected && it.compatible }.map { it.name }.toSet())
-                        }) { Text("Recommended") }
-                        TextButton(onClick = { onSelectedChange(emptySet()) }) { Text("None") }
+                        }) { Text("الموصى بها") }
+                        TextButton(onClick = { onSelectedChange(emptySet()) }) { Text("لا شيء") }
                     }
                 }
             }
             if (!expertMode) {
                 item {
                     Text(
-                        "Simple mode uses the recommended selection. Turn on expert mode in Settings to change options per patch — here you can still review the list.",
+                        "يستخدم الوضع البسيط التحديد الموصى به. فعّل وضع الخبير من الإعدادات لتغيير خيارات كل تعديل — يمكنك مراجعة القائمة هنا.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -201,12 +259,12 @@ private fun PatchSelectionScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("إلغاء") }
                 Button(
                     onClick = onPatch,
-                    enabled = selected.isNotEmpty(),
+                    enabled = selected.isNotEmpty() && downloaded,
                     modifier = Modifier.weight(2f)
-                ) { Text("Patch") }
+                ) { Text("تعديل") }
             }
         }
     }
@@ -230,8 +288,8 @@ private fun PatchSelectionScreen(
                     }
                 }
             },
-            confirmButton = { Button(onClick = { optionsPatch = null }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { optionsPatch = null }) { Text("Cancel") } }
+            confirmButton = { Button(onClick = { optionsPatch = null }) { Text("حفظ") } },
+            dismissButton = { TextButton(onClick = { optionsPatch = null }) { Text("إلغاء") } }
         )
     }
 }
@@ -246,7 +304,7 @@ private fun PatchRow(
     val alpha = if (patch.compatible) 1f else 0.45f
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -264,19 +322,19 @@ private fun PatchRow(
                     if (patch.isNew) {
                         Spacer(Modifier.width(8.dp))
                         Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primary) {
-                            Text("NEW", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                            Text("جديد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
                         }
                     }
                     if (!patch.compatible) {
                         Spacer(Modifier.width(8.dp))
-                        Text("Incompatible", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        Text("غير متوافق", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
                 Text(patch.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
             }
             if (patch.options.isNotEmpty()) {
                 IconButton(onClick = onOptions) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "Options for ${patch.name}")
+                    Icon(Icons.Rounded.Tune, contentDescription = "خيارات ${patch.name}")
                 }
             }
         }
@@ -290,6 +348,7 @@ private fun PatchProgressScreen(
     onCancel: () -> Unit,
     onFinished: () -> Unit
 ) {
+    val steps = remember(patchCount) { patchStepsAr(patchCount) }
     val doneSteps = remember { mutableStateListOf<String>() }
     var currentStep by remember { mutableIntStateOf(0) }
     var elapsed by remember { mutableIntStateOf(0) }
@@ -299,7 +358,6 @@ private fun PatchProgressScreen(
     val pulseAlpha by pulse.animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "alpha")
 
     LaunchedEffect(Unit) {
-        val steps = MockData.patchSteps
         while (currentStep < steps.size) {
             delay(if (currentStep == 2) 2600 else 1300)
             doneSteps.add(steps[currentStep])
@@ -311,7 +369,7 @@ private fun PatchProgressScreen(
     LaunchedEffect(Unit) {
         while (true) {
             delay(500)
-            if (currentStep < MockData.patchSteps.size) {
+            if (currentStep < steps.size) {
                 elapsed++
                 usage.add(0.25f + Random.nextFloat() * 0.7f)
                 if (usage.size > 28) usage.removeAt(0)
@@ -324,22 +382,22 @@ private fun PatchProgressScreen(
             AppTile(app.tileColor, app.glyph, 40)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Patching ${app.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text("Applying $patchCount patches • ${elapsed}s", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("جارٍ تعديل ${app.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("تطبيق $patchCount من التعديلات • $elapsed ث", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onCancel) { Icon(Icons.Rounded.Close, contentDescription = "Cancel patching") }
+            IconButton(onClick = onCancel) { Icon(Icons.Rounded.Close, contentDescription = "إلغاء التعديل") }
         }
         Spacer(Modifier.height(16.dp))
         LinearProgressIndicator(
-            progress = { currentStep.toFloat() / MockData.patchSteps.size },
+            progress = { currentStep.toFloat() / steps.size },
             modifier = Modifier.fillMaxWidth().height(6.dp)
         )
         Spacer(Modifier.height(16.dp))
 
         // Resource usage graph, like the reference app's patching screen.
-        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp)) {
-                Text("CPU / Memory", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("استخدام المعالج / الذاكرة", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 val barColor = MaterialTheme.colorScheme.primary
                 Canvas(Modifier.fillMaxWidth().height(56.dp)) {
@@ -356,7 +414,7 @@ private fun PatchProgressScreen(
         }
         Spacer(Modifier.height(16.dp))
 
-        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(doneSteps) { step ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -365,12 +423,12 @@ private fun PatchProgressScreen(
                         Text(step, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
                     }
                 }
-                if (currentStep < MockData.patchSteps.size) {
+                if (currentStep < steps.size) {
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha), CircleShape))
                             Spacer(Modifier.width(11.dp))
-                            Text(MockData.patchSteps[currentStep] + "…", style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(steps[currentStep] + "…", style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -386,10 +444,10 @@ private fun PatchProgressScreen(
                 Icon(Icons.Rounded.SportsEsports, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("While you wait", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                    Text("Play Snake until patching finishes", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text("بينما تنتظر", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text("العب Snake حتى ينتهي التعديل", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
-                Button(onClick = { showGame = true }) { Text("Play") }
+                Button(onClick = { showGame = true }) { Text("العب") }
             }
         }
     }
@@ -399,7 +457,7 @@ private fun PatchProgressScreen(
             onDismissRequest = { showGame = false },
             title = { Text("Snake") },
             text = { SnakeGame() },
-            confirmButton = { TextButton(onClick = { showGame = false }) { Text("Close") } }
+            confirmButton = { TextButton(onClick = { showGame = false }) { Text("إغلاق") } }
         )
     }
 }
@@ -459,14 +517,14 @@ fun SnakeGame() {
         }
         Spacer(Modifier.height(8.dp))
         if (alive) {
-            Text("Score: $score — swipe to steer", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("النقاط: $score — اسحب للتوجيه", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Game over — score $score", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("انتهت اللعبة — النقاط $score", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = {
                     snake = listOf(7 to 7, 6 to 7, 5 to 7); dir = 1 to 0; score = 0; alive = true
-                }) { Text("Restart") }
+                }) { Text("إعادة") }
             }
         }
     }
@@ -492,37 +550,37 @@ private fun PatchResultScreen(
             }
         }
         Spacer(Modifier.height(20.dp))
-        Text("Patched successfully", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text("اكتمل التعديل بنجاح", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "${app.name} v${app.suggestedVersion} with $patchCount patches is ready. In this UI demo the file was not actually created.",
+            "${app.name} v${app.suggestedVersion} مع $patchCount من التعديلات جاهز. في هذا العرض التجريبي لم يتم إنشاء أي ملف فعليًا.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(28.dp))
         Button(
-            onClick = { onDemoAction("UI demo — installation is disabled") },
+            onClick = { onDemoAction("عرض تجريبي — التثبيت معطّل") },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Install") }
+        ) { Text("تثبيت") }
         Spacer(Modifier.height(10.dp))
         OutlinedButton(
-            onClick = { onDemoAction("UI demo — no APK was saved") },
+            onClick = { onDemoAction("عرض تجريبي — لم يتم حفظ أي APK") },
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Save APK")
+            Text("حفظ APK")
         }
         Spacer(Modifier.height(10.dp))
         OutlinedButton(
-            onClick = { onDemoAction("UI demo — nothing to share") },
+            onClick = { onDemoAction("عرض تجريبي — لا يوجد ما يمكن مشاركته") },
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Rounded.Share, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Share log")
+            Text("مشاركة السجل")
         }
         Spacer(Modifier.weight(1f))
-        TextButton(onClick = onDone) { Text("Done") }
+        TextButton(onClick = onDone) { Text("تم") }
     }
 }

@@ -106,10 +106,94 @@ fun morpheExtraColors(dark: Boolean): MorpheExtraColors = if (dark) {
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/**
+ * Monochrome ("night owl") schemes: the reference appearance trait flattens every accent into
+ * neutral grays — pure black dark background, gray containers, near-white primary, and a slate
+ * selection capsule — exactly how the app renders on the reference device.
+ */
+private val MonoDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFE9E9EC),
+    onPrimary = Color(0xFF1A1A1E),
+    primaryContainer = Color(0xFF3A4152),
+    onPrimaryContainer = Color(0xFFE9EDF5),
+    secondary = Color(0xFFC6C6CC),
+    onSecondary = Color(0xFF232328),
+    secondaryContainer = Color(0xFF3A4152),
+    onSecondaryContainer = Color(0xFFE9EDF5),
+    tertiary = Color(0xFFC6C6CC),
+    onTertiary = Color(0xFF232328),
+    tertiaryContainer = Color(0xFF2C2C31),
+    onTertiaryContainer = Color(0xFFE9E9EC),
+    error = Color(0xFFFFB4AB),
+    errorContainer = Color(0xFF93000A),
+    onError = Color(0xFF690005),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFF2F2F4),
+    surface = Color(0xFF000000),
+    onSurface = Color(0xFFF2F2F4),
+    surfaceVariant = Color(0xFF26262B),
+    onSurfaceVariant = Color(0xFFA7A7AD),
+    outline = Color(0xFF3A3A40),
+    outlineVariant = Color(0xFF232328),
+    inverseSurface = Color(0xFFF2F2F4),
+    inverseOnSurface = Color(0xFF1A1A1E),
+    inversePrimary = Color(0xFF3A3A40),
+    surfaceTint = Color(0xFFE9E9EC),
+    surfaceContainerLowest = Color(0xFF000000),
+    surfaceContainerLow = Color(0xFF101013),
+    surfaceContainer = Color(0xFF17171B),
+    surfaceContainerHigh = Color(0xFF1D1D21),
+    surfaceContainerHighest = Color(0xFF2C2C31),
+    surfaceBright = Color(0xFF232328),
+    surfaceDim = Color(0xFF000000),
+    scrim = Color(0xFF000000)
+)
+
+private val MonoLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF2B2B30),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFD9DEE8),
+    onPrimaryContainer = Color(0xFF1D2531),
+    secondary = Color(0xFF5A5A61),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFD9DEE8),
+    onSecondaryContainer = Color(0xFF1D2531),
+    tertiary = Color(0xFF5A5A61),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFE4E4E8),
+    onTertiaryContainer = Color(0xFF2B2B30),
+    error = Color(0xFFBA1A1A),
+    errorContainer = Color(0xFFFFDAD6),
+    onError = Color(0xFFFFFFFF),
+    onErrorContainer = Color(0xFF410002),
+    background = Color(0xFFFAFAFA),
+    onBackground = Color(0xFF1A1A1E),
+    surface = Color(0xFFFAFAFA),
+    onSurface = Color(0xFF1A1A1E),
+    surfaceVariant = Color(0xFFE4E4E8),
+    onSurfaceVariant = Color(0xFF5A5A61),
+    outline = Color(0xFFB9B9C0),
+    outlineVariant = Color(0xFFDDDDE2),
+    inverseSurface = Color(0xFF2B2B30),
+    inverseOnSurface = Color(0xFFF2F2F4),
+    inversePrimary = Color(0xFFD9DEE8),
+    surfaceTint = Color(0xFF2B2B30),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF2F2F4),
+    surfaceContainer = Color(0xFFEDEDEF),
+    surfaceContainerHigh = Color(0xFFE7E7EA),
+    surfaceContainerHighest = Color(0xFFDFDFE3),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFD9D9DD),
+    scrim = Color(0xFF000000)
+)
+
 @Composable
 fun MorpheTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = false,
+    monochrome: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val dark = when (mode) {
@@ -119,6 +203,7 @@ fun MorpheTheme(
     }
     val context = LocalContext.current
     val scheme = when {
+        monochrome -> if (dark) MonoDarkScheme else MonoLightScheme
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> DarkScheme
