@@ -83,7 +83,7 @@ fun SourcesPage(
                 searchLabel = "بحث في المصادر",
                 trailing = {
                     Spacer(Modifier.width(10.dp))
-                    CircleIconButton(Icons.Rounded.Refresh, "تحديث المصادر") { updating = true }
+                    CircleIconButton(Icons.Rounded.Refresh, "تحديث المصادر", { updating = true })
                 }
             )
             LazyColumn(
