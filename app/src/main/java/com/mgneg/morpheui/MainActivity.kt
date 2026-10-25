@@ -56,7 +56,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val prefs = remember { UiPrefs() }
             MorpheTheme(mode = prefs.themeMode, dynamicColor = prefs.dynamicColor) {
-                MorpheRoot(prefs)
+                // The reference app is an English LTR interface; pin the layout direction so an
+                // RTL system locale does not mirror and break the design.
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr
+                ) {
+                    MorpheRoot(prefs)
+                }
             }
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,28 +23,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoFixHigh
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,13 +54,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.mgneg.morpheui.ui.components.AppTile
+import androidx.compose.ui.unit.sp
 import com.mgneg.morpheui.ui.components.PageHeader
-import com.mgneg.morpheui.ui.components.StateBadge
 import com.mgneg.morpheui.ui.components.rememberSearchFieldState
 import com.mgneg.morpheui.ui.data.AppEntry
 import com.mgneg.morpheui.ui.data.AppState
@@ -73,7 +73,8 @@ import com.mgneg.morpheui.ui.theme.MorpheBrandTeal
 import kotlinx.coroutines.delay
 
 private enum class AppFilter(val label: String) {
-    ALL("All"), PATCHED("Patched"), NOT_PATCHED("Not patched"), INSTALLED("Installed"), CLONES("Clones")
+    ALL("All"), PATCHED("Patched"), NOT_PATCHED("Not patched"),
+    INSTALLED("Installed"), UNINSTALLED("Uninstalled"), CLONES("Clones")
 }
 
 @Composable
@@ -84,9 +85,9 @@ fun AppsPage(
 ) {
     val search = rememberSearchFieldState()
     var filter by remember { mutableStateOf(AppFilter.ALL) }
+    var filterMenuOpen by remember { mutableStateOf(false) }
     var updateBannerVisible by remember { mutableStateOf(true) }
     var hiddenApps by remember { mutableStateOf(setOf<String>()) }
-    var infoApp by remember { mutableStateOf<AppEntry?>(null) }
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     val downloads = remember { mutableStateMapOf<String, Float>() }
@@ -96,9 +97,10 @@ fun AppsPage(
             (search.query.isEmpty() || app.name.contains(search.query, ignoreCase = true)) &&
             when (filter) {
                 AppFilter.ALL -> true
-                AppFilter.PATCHED -> app.state == AppState.PATCHED || app.state == AppState.PATCHED_UPDATE_AVAILABLE || app.state == AppState.NOT_INSTALLED_PATCHED
+                AppFilter.PATCHED -> app.state == AppState.PATCHED || app.state == AppState.PATCHED_UPDATE_AVAILABLE
                 AppFilter.NOT_PATCHED -> app.state == AppState.NOT_PATCHED || app.state == AppState.UPDATE_AVAILABLE
                 AppFilter.INSTALLED -> app.installedVersion != null
+                AppFilter.UNINSTALLED -> app.state == AppState.NOT_INSTALLED_PATCHED
                 AppFilter.CLONES -> app.hasClones
             }
     }
@@ -120,7 +122,7 @@ fun AppsPage(
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = bottomInset.dp + 16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = bottomInset.dp + 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (updateBannerVisible && !selecting) {
@@ -132,17 +134,41 @@ fun AppsPage(
                     }
                 }
                 item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(AppFilter.entries) { f ->
-                            FilterChip(
-                                selected = filter == f,
-                                onClick = { filter = f },
-                                label = { Text(f.label) },
-                                leadingIcon = if (filter == f) {
-                                    { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                } else null
-                            )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box {
+                            Surface(
+                                onClick = { filterMenuOpen = true },
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(filter.label, style = MaterialTheme.typography.labelLarge)
+                                    Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            DropdownMenu(expanded = filterMenuOpen, onDismissRequest = { filterMenuOpen = false }) {
+                                AppFilter.entries.forEach { f ->
+                                    DropdownMenuItem(
+                                        text = { Text(f.label) },
+                                        onClick = { filter = f; filterMenuOpen = false }
+                                    )
+                                }
+                            }
                         }
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "${visible.size} apps",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 items(visible, key = { it.packageName }) { app ->
@@ -154,15 +180,12 @@ fun AppsPage(
                         onClick = {
                             if (selecting) {
                                 selected = if (app.packageName in selected) selected - app.packageName else selected + app.packageName
-                            } else infoApp = app
+                            } else onPatchApp(app)
                         },
                         onLongClick = { selecting = true; selected = selected + app.packageName },
-                        onPatch = { onPatchApp(app) },
                         onDownload = { pkg ->
                             if (!downloads.containsKey(pkg)) downloads[pkg] = 0f
-                        },
-                        onHide = { hiddenApps = hiddenApps + app.packageName; onDemoAction("${app.name} hidden") },
-                        onInfo = { infoApp = app }
+                        }
                     )
                 }
                 item {
@@ -225,32 +248,12 @@ fun AppsPage(
             }
         }
     }
-
-    infoApp?.let { app ->
-        AlertDialog(
-            onDismissRequest = { infoApp = null },
-            title = { Text(app.name) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Package: ${app.packageName}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Installed: ${app.installedVersion ?: "Not installed"}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Suggested: ${app.suggestedVersion}", style = MaterialTheme.typography.bodyMedium)
-                    app.patchedVersion?.let { Text("Patched: $it", style = MaterialTheme.typography.bodyMedium) }
-                    Text("Size: ${app.sizeMb} MB", style = MaterialTheme.typography.bodyMedium)
-                }
-            },
-            confirmButton = {
-                Button(onClick = { infoApp = null; onPatchApp(app) }) { Text("Patch") }
-            },
-            dismissButton = { TextButton(onClick = { infoApp = null }) { Text("Close") } }
-        )
-    }
 }
 
 @Composable
 private fun UpdateBanner(onDownload: () -> Unit, onDismiss: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -259,22 +262,27 @@ private fun UpdateBanner(onDownload: () -> Unit, onDismiss: () -> Unit) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.SystemUpdate, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(28.dp))
+            Icon(Icons.Rounded.SystemUpdate, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Morphe update available", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
-                Text("New version ready to install", color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+                Text("Morphe update available", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+                Text("New version ready to install", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
             }
             IconButton(onClick = onDownload) {
-                Icon(Icons.Rounded.Download, contentDescription = "Download update", tint = androidx.compose.ui.graphics.Color.White)
+                Icon(Icons.Rounded.Download, contentDescription = "Download update", tint = Color.White)
             }
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Rounded.Close, contentDescription = "Dismiss", tint = androidx.compose.ui.graphics.Color.White)
+                Icon(Icons.Rounded.Close, contentDescription = "Dismiss", tint = Color.White)
             }
         }
     }
 }
 
+/**
+ * The home app card, matching the reference layout: an 80dp frosted-glass card drawn with the
+ * app's own gradient, a 60dp icon, a white title, and a fixed-height second row where the
+ * version text takes the width and at most one frosted badge is pinned to the end.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppCard(
@@ -284,101 +292,146 @@ private fun AppCard(
     downloadProgress: Float?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onPatch: () -> Unit,
-    onDownload: (String) -> Unit,
-    onHide: () -> Unit,
-    onInfo: () -> Unit
+    onDownload: (String) -> Unit
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
     val animated by animateFloatAsState(downloadProgress ?: 0f, tween(120), label = "dl")
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+    val g = app.gradient
+    val glass = Brush.linearGradient(
+        colors = listOf(
+            g.getOrElse(0) { Color.Gray }.copy(alpha = 0.70f),
+            g.getOrElse(1) { Color.Gray }.copy(alpha = 0.58f),
+            g.getOrElse(2) { Color.Gray }.copy(alpha = 0.64f)
+        ),
+        start = Offset(0f, Float.POSITIVE_INFINITY),
+        end = Offset(Float.POSITIVE_INFINITY, 0f)
+    )
+    val titleShadow = Shadow(color = Color.Black.copy(alpha = 0.4f), offset = Offset(0f, 2f), blurRadius = 4f)
+    val subtitleShadow = Shadow(color = Color.Black.copy(alpha = 0.4f), offset = Offset(0f, 1f), blurRadius = 2f)
+
+    val subtitle = when (app.state) {
+        AppState.PATCHED -> "v${app.patchedVersion ?: app.installedVersion ?: app.suggestedVersion}"
+        AppState.PATCHED_UPDATE_AVAILABLE -> "v${app.patchedVersion ?: ""} → v${app.suggestedVersion}"
+        AppState.NOT_PATCHED -> "v${app.installedVersion ?: app.suggestedVersion} • Not patched yet"
+        AppState.UPDATE_AVAILABLE -> "v${app.installedVersion ?: ""} • Not patched yet"
+        AppState.NOT_INSTALLED_PATCHED -> "v${app.patchedVersion ?: app.suggestedVersion}"
+    }
+    val hasUpdate = app.state == AppState.PATCHED_UPDATE_AVAILABLE || app.state == AppState.UPDATE_AVAILABLE
+    val canDownload = downloadProgress == null &&
+        (app.installedVersion == null || app.state == AppState.UPDATE_AVAILABLE || app.state == AppState.NOT_INSTALLED_PATCHED)
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(80.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(glass)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
-        Column {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AppTile(app.tileColor, app.glyph)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(app.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.width(8.dp))
-                        when (app.state) {
-                            AppState.PATCHED -> StateBadge("Patched", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-                            AppState.PATCHED_UPDATE_AVAILABLE -> StateBadge("Update", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                            AppState.NOT_PATCHED -> StateBadge("Not patched", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
-                            AppState.NOT_INSTALLED_PATCHED -> StateBadge("Not installed", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-                            AppState.UPDATE_AVAILABLE -> StateBadge("Update available", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                        }
-                    }
-                    Text(
-                        app.installedVersion?.let { "v$it" } ?: "Not installed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "Suggested v${app.suggestedVersion}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 60dp icon on a frosted tile, with the update/clone marks the reference pins on it.
+            Box(Modifier.size(60.dp)) {
+                Box(
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.20f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(app.glyph, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                 }
-                if (downloadProgress != null) {
-                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(progress = { animated }, modifier = Modifier.size(36.dp), strokeWidth = 3.dp)
+                if (hasUpdate) {
+                    Box(
+                        modifier = Modifier.align(Alignment.TopEnd).size(24.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Rounded.Update, contentDescription = "Update available", tint = Color.White, modifier = Modifier.size(14.dp))
                     }
-                } else if (app.installedVersion == null || app.state == AppState.UPDATE_AVAILABLE) {
-                    IconButton(onClick = { onDownload(app.packageName) }) {
-                        Icon(Icons.Rounded.Download, contentDescription = "Download ${app.name}")
-                    }
-                }
-                if (!selecting) {
-                    IconButton(onClick = onPatch) {
-                        Icon(Icons.Rounded.AutoFixHigh, contentDescription = "Patch ${app.name}", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("App info") },
-                                leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null) },
-                                onClick = { menuOpen = false; onInfo() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Check for updates") },
-                                leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                                onClick = { menuOpen = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Hide this app") },
-                                leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
-                                onClick = { menuOpen = false; onHide() }
-                            )
-                        }
+                } else if (app.hasClones) {
+                    Box(
+                        modifier = Modifier.align(Alignment.TopEnd).size(24.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Clone", tint = Color.White, modifier = Modifier.size(13.dp))
                     }
                 }
             }
-            if (downloadProgress != null) {
-                LinearProgressIndicator(
-                    progress = { animated },
-                    modifier = Modifier.fillMaxWidth().height(3.dp)
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = app.name,
+                    style = MaterialTheme.typography.titleLarge.copy(shadow = titleShadow),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                // Fixed badge-height row: version text takes the width, one badge pinned at the end.
+                Row(
+                    modifier = Modifier.height(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = subtitle,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium.copy(shadow = subtitleShadow),
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (app.state == AppState.NOT_INSTALLED_PATCHED) {
+                        FrostBadge("Uninstalled")
+                    }
+                }
+            }
+
+            if (selecting) {
+                Icon(
+                    if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            } else if (downloadProgress != null) {
+                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { animated },
+                        modifier = Modifier.size(34.dp),
+                        strokeWidth = 3.dp,
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                }
+            } else if (canDownload) {
+                IconButton(onClick = { onDownload(app.packageName) }) {
+                    Icon(Icons.Rounded.Download, contentDescription = "Download ${app.name}", tint = Color.White)
+                }
             }
         }
+    }
+}
+
+/** Frosted-glass status chip used on the gradient cards: white fill at 20%, white label, one line. */
+@Composable
+private fun FrostBadge(text: String) {
+    Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.20f), contentColor = Color.White) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            maxLines = 1
+        )
     }
 }
 
 @Composable
 private fun MoreAppsCard(onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -390,7 +443,7 @@ private fun MoreAppsCard(onClick: () -> Unit) {
                 Text("More apps", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text("Select other apps from your device or storage", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = onClick) { Text("Select") }
+            TextButton(onClick = onClick) { Text("Select") }
         }
     }
 }

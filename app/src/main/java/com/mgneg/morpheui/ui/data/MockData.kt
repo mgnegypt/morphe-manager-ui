@@ -13,6 +13,8 @@ data class AppEntry(
     val patchedVersion: String? = null,
     val state: AppState,
     val tileColor: Color,
+    /** Per-app gradient palette the home card is drawn with (base, mid, end). */
+    val gradient: List<Color>,
     val glyph: String,
     val sizeMb: Int = 84,
     val hasClones: Boolean = false
@@ -52,49 +54,49 @@ object MockData {
             name = "YouTube", packageName = "com.google.android.youtube",
             installedVersion = "20.42.34", suggestedVersion = "20.42.34",
             patchedVersion = "20.42.34", state = AppState.PATCHED,
-            tileColor = Color(0xFFFF0033), glyph = "▶"
+            tileColor = Color(0xFFFF0033), gradient = listOf(Color(0xFFFF0033), Color(0xFFD60026), Color(0xFF8F001B)), glyph = "▶"
         ),
         AppEntry(
             name = "YouTube Music", packageName = "com.google.android.apps.youtube.music",
             installedVersion = "8.34.52", suggestedVersion = "8.34.52",
             patchedVersion = "8.30.54", state = AppState.PATCHED_UPDATE_AVAILABLE,
-            tileColor = Color(0xFFFF2547), glyph = "♪"
+            tileColor = Color(0xFFFF2547), gradient = listOf(Color(0xFFFF5E7A), Color(0xFFE91E45), Color(0xFF9E1032)), glyph = "♪"
         ),
         AppEntry(
             name = "Spotify", packageName = "com.spotify.music",
             installedVersion = "9.0.84.1293", suggestedVersion = "9.0.84.1293",
             state = AppState.NOT_PATCHED,
-            tileColor = Color(0xFF1DB954), glyph = "◉"
+            tileColor = Color(0xFF1DB954), gradient = listOf(Color(0xFF2EE06F), Color(0xFF1DB954), Color(0xFF0E7A33)), glyph = "◉"
         ),
         AppEntry(
             name = "Instagram", packageName = "com.instagram.android",
             installedVersion = "402.0.0.48.68", suggestedVersion = "402.0.0.48.68",
             state = AppState.NOT_PATCHED,
-            tileColor = Color(0xFFE1306C), glyph = "◎"
+            tileColor = Color(0xFFE1306C), gradient = listOf(Color(0xFFF77737), Color(0xFFE1306C), Color(0xFF833AB4)), glyph = "◎"
         ),
         AppEntry(
             name = "TikTok", packageName = "com.zhiliaoapp.musically",
-            installedVersion = "41.3.3", suggestedVersion = "41.3.3",
+            installedVersion = "41.3.3", suggestedVersion = "41.4.2",
             state = AppState.UPDATE_AVAILABLE,
-            tileColor = Color(0xFF111111), glyph = "♫"
+            tileColor = Color(0xFF111111), gradient = listOf(Color(0xFF3A3A42), Color(0xFF1C1C22), Color(0xFF000000)), glyph = "♫"
         ),
         AppEntry(
             name = "Reddit", packageName = "com.reddit.frontpage",
             installedVersion = null, suggestedVersion = "2025.42.0",
             patchedVersion = "2025.40.0", state = AppState.NOT_INSTALLED_PATCHED,
-            tileColor = Color(0xFFFF4500), glyph = "⬤"
+            tileColor = Color(0xFFFF4500), gradient = listOf(Color(0xFFFF7A29), Color(0xFFFF4500), Color(0xFFB32D00)), glyph = "⬤"
         ),
         AppEntry(
             name = "X", packageName = "com.twitter.android",
             installedVersion = "11.31.1-release.0", suggestedVersion = "11.31.1-release.0",
             patchedVersion = "11.31.1-release.0", state = AppState.PATCHED, hasClones = true,
-            tileColor = Color(0xFF000000), glyph = "𝕏"
+            tileColor = Color(0xFF000000), gradient = listOf(Color(0xFF4A4A52), Color(0xFF232329), Color(0xFF000000)), glyph = "𝕏"
         ),
         AppEntry(
             name = "Twitch", packageName = "tv.twitch.android.app",
             installedVersion = "26.4.1", suggestedVersion = "26.4.1",
             state = AppState.NOT_PATCHED,
-            tileColor = Color(0xFF9146FF), glyph = "▣"
+            tileColor = Color(0xFF9146FF), gradient = listOf(Color(0xFFB380FF), Color(0xFF9146FF), Color(0xFF5C1FB8)), glyph = "▣"
         )
     )
 

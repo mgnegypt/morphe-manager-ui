@@ -248,6 +248,7 @@ fun StateBadge(text: String, container: androidx.compose.ui.graphics.Color, cont
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = content,
+            maxLines = 1,
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
         )
     }
