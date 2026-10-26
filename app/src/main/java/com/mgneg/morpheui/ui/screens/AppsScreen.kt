@@ -27,7 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -40,8 +40,9 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Update
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -103,9 +104,9 @@ fun AppsPage(
     var query by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(AppFilter.ALL) }
-    var filterMenuOpen by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf(AppSort.NAME_ASC) }
-    var sortMenuOpen by remember { mutableStateOf(false) }
+    var optionsOpen by remember { mutableStateOf(false) }
+    var infoApp by remember { mutableStateOf<AppEntry?>(null) }
     var updateBannerVisible by remember { mutableStateOf(true) }
     var hiddenApps by remember { mutableStateOf(setOf<String>()) }
     var selecting by remember { mutableStateOf(false) }
@@ -158,22 +159,15 @@ fun AppsPage(
                                     withStyle(SpanStyle(brush = Brush.linearGradient(listOf(MorpheBrandBlue, MorpheBrandTeal)), fontWeight = FontWeight.Bold)) { append("M") }
                                     withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("orphe") }
                                 },
-                                fontSize = 32.sp,
+                                fontSize = 25.sp,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Spacer(Modifier.weight(1f))
-                            CircleIconButton(Icons.Rounded.Search, "بحث", { searchOpen = !searchOpen })
+                            CircleIconButton(Icons.Rounded.Sort, "فرز", { optionsOpen = !optionsOpen })
                             Spacer(Modifier.width(10.dp))
-                            CircleIconButton(Icons.Rounded.FileOpen, "فتح ملف APK", { onDemoAction("فتح الملفات غير متاح في هذا العرض التجريبي") })
+                            CircleIconButton(Icons.Rounded.FileOpen, "اختيار تطبيقات أخرى", { onDemoAction("فتح الملفات غير متاح في هذا العرض التجريبي") })
                             Spacer(Modifier.width(10.dp))
-                            Box {
-                                CircleIconButton(Icons.Rounded.Sort, "فرز", { sortMenuOpen = true })
-                                DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
-                                    AppSort.entries.forEach { s ->
-                                        DropdownMenuItem(text = { Text(s.label) }, onClick = { sort = s; sortMenuOpen = false })
-                                    }
-                                }
-                            }
+                            CircleIconButton(Icons.Rounded.Search, "البحث عن التطبيقات", { searchOpen = !searchOpen })
                         }
                         AnimatedVisibility(visible = searchOpen, enter = fadeIn() + slideInVertically { -it / 2 }, exit = fadeOut()) {
                             Row(
@@ -206,12 +200,14 @@ fun AppsPage(
                                 }
                             }
                         }
-                        Text(
-                            greetingText(),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 18.dp)
-                        )
+                        if (prefs.greetingPhrases) {
+                            Text(
+                                greetingText(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -227,43 +223,59 @@ fun AppsPage(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box {
+                Column {
+                    // List options panel, opened from the header sort action like the reference.
+                    AnimatedVisibility(visible = optionsOpen) {
                         Surface(
-                            onClick = { filterMenuOpen = true },
-                            shape = RoundedCornerShape(50),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(filter.label, style = MaterialTheme.typography.labelLarge)
-                                Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        DropdownMenu(expanded = filterMenuOpen, onDismissRequest = { filterMenuOpen = false }) {
-                            AppFilter.entries.forEach { f ->
-                                DropdownMenuItem(text = { Text(f.label) }, onClick = { filter = f; filterMenuOpen = false })
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Sort, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("فرز", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    AppSort.entries.forEach { s ->
+                                        FilterChip(selected = sort == s, onClick = { sort = s }, label = { Text(s.label) })
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("تصفية", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    AppFilter.entries.take(3).forEach { f ->
+                                        FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    AppFilter.entries.drop(3).forEach { f ->
+                                        FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
+                                    }
+                                }
                             }
                         }
                     }
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        when (visible.size) {
-                            1 -> "تطبيق واحد"
-                            2 -> "تطبيقان"
-                            in 3..10 -> "${visible.size} تطبيقات"
-                            else -> "${visible.size} تطبيقًا"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            when (visible.size) {
+                                1 -> "تطبيق واحد"
+                                2 -> "تطبيقان"
+                                in 3..10 -> "${visible.size} تطبيقات"
+                                else -> "${visible.size} تطبيقًا"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -271,19 +283,26 @@ fun AppsPage(
                 AppCard(
                     app = app,
                     monochrome = prefs.monochrome,
+                    colorAccents = prefs.colorAccents,
                     selecting = selecting,
                     isSelected = app.packageName in selected,
                     onClick = {
                         if (selecting) {
                             selected = if (app.packageName in selected) selected - app.packageName else selected + app.packageName
-                        } else onPatchApp(app)
+                        } else infoApp = app
                     },
                     onLongClick = { selecting = true; selected = selected + app.packageName }
                 )
             }
 
-            item {
-                MoreAppsCard(onClick = { onDemoAction("اختيار التطبيقات غير متاح في هذا العرض التجريبي") })
+            if (prefs.moreAppsCard && query.isEmpty() && filter == AppFilter.ALL && !selecting) {
+                item {
+                    MoreAppsCard(
+                        monochrome = prefs.monochrome,
+                        onClick = { onDemoAction("اختيار التطبيقات غير متاح في هذا العرض التجريبي") },
+                        onHide = { prefs.moreAppsCard = false; onDemoAction("تم إخفاء البطاقة — يمكن إعادتها من المظهر") }
+                    )
+                }
             }
             if (hiddenApps.isNotEmpty()) {
                 item {
@@ -323,6 +342,51 @@ fun AppsPage(
                     }) { Text("إخفاء") }
                 }
             }
+        }
+
+        // App info dialog, opened by tapping a card like the reference.
+        infoApp?.let { app ->
+            AlertDialog(
+                onDismissRequest = { infoApp = null },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(app.tileColor),
+                            contentAlignment = Alignment.Center
+                        ) { Text(app.glyph, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.width(12.dp))
+                        Text(app.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        app.installedVersion?.let { Text("الإصدار المثبت: v$it") }
+                        Text("الإصدار المقترح: v${app.suggestedVersion}")
+                        app.patchedVersion?.let { Text("الإصدار المعدّل: v$it") }
+                        Text(
+                            when (app.state) {
+                                AppState.PATCHED -> "الحالة: تم تعديله"
+                                AppState.PATCHED_UPDATE_AVAILABLE -> "الحالة: تم تعديله — يتوفر تحديث"
+                                AppState.UPDATE_AVAILABLE -> "الحالة: يتوفر تحديث"
+                                AppState.NOT_INSTALLED_PATCHED -> "الحالة: معدّل وغير مثبت"
+                                AppState.NOT_PATCHED -> "الحالة: لم يتم تعديله بعد"
+                            }
+                        )
+                        Text("الحجم: ${app.sizeMb} MB", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { val target = app; infoApp = null; onPatchApp(target) }) { Text("تعديل") }
+                },
+                dismissButton = {
+                    Row {
+                        if (app.installedVersion != null) {
+                            TextButton(onClick = { infoApp = null; onDemoAction("إلغاء التثبيت غير متاح في هذا العرض التجريبي") }) { Text("إلغاء التثبيت") }
+                        }
+                        TextButton(onClick = { infoApp = null }) { Text("إغلاق") }
+                    }
+                }
+            )
         }
     }
 }
@@ -372,6 +436,7 @@ private fun UpdateBanner(monochrome: Boolean, onDownload: () -> Unit, onDismiss:
 private fun AppCard(
     app: AppEntry,
     monochrome: Boolean,
+    colorAccents: Boolean,
     selecting: Boolean,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -405,7 +470,8 @@ private fun AppCard(
                 if (monochrome) {
                     Modifier.background(colors.surfaceContainerHigh)
                 } else {
-                    val g = app.gradient
+                    // Per-app accent colors, or the single theme accent when they are off.
+                    val g = if (colorAccents) app.gradient else listOf(MorpheBrandBlue, MorpheBrandTeal, MorpheBrandBlue)
                     Modifier.background(
                         Brush.linearGradient(
                             colors = listOf(
@@ -496,30 +562,76 @@ private fun AppCard(
 }
 
 @Composable
-private fun MoreAppsCard(onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
+private fun MoreAppsCard(monochrome: Boolean, onClick: () -> Unit, onHide: () -> Unit) {
+    var hideDialog by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .then(
+                if (monochrome) Modifier.background(colors.surfaceContainerHigh)
+                else Modifier.background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MorpheBrandBlue.copy(alpha = 0.70f),
+                            MorpheBrandTeal.copy(alpha = 0.58f),
+                            MorpheBrandBlue.copy(alpha = 0.64f)
+                        ),
+                        start = Offset(0f, Float.POSITIVE_INFINITY),
+                        end = Offset(Float.POSITIVE_INFINITY, 0f)
+                    )
+                )
+            )
+            .combinedClickable(onClick = onClick, onLongClick = { hideDialog = true })
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("تطبيقات أكثر", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "اختر تطبيقات أخرى من جهازك أو من وحدة التخزين",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Box(
+                modifier = Modifier.size(60.dp).clip(RoundedCornerShape(16.dp))
+                    .background(if (monochrome) colors.surfaceContainerHighest else Color.White.copy(alpha = 0.20f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = if (monochrome) colors.onSurfaceVariant else Color.White
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "المزيد من التطبيقات",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (monochrome) colors.onSurface else Color.White,
+                    maxLines = 1
+                )
+                Text(
+                    "تعديلات المجتمع",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (monochrome) colors.onSurfaceVariant else Color.White.copy(alpha = 0.85f),
+                    maxLines = 1
+                )
+            }
         }
+    }
+    if (hideDialog) {
+        AlertDialog(
+            onDismissRequest = { hideDialog = false },
+            title = { Text("إخفاء هذه البطاقة؟") },
+            text = { Text("يمكنك إعادته في أي وقت من الإعدادات > المظهر > الشاشة الرئيسية") },
+            confirmButton = {
+                TextButton(onClick = { hideDialog = false; onHide() }) { Text("إخفاء") }
+            },
+            dismissButton = { TextButton(onClick = { hideDialog = false }) { Text("إلغاء") } }
+        )
     }
 }

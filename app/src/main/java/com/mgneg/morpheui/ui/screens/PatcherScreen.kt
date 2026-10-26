@@ -116,6 +116,7 @@ fun PatcherFlow(
         1 -> PatchProgressScreen(
             app = app,
             patchCount = selected.size,
+            expertMode = expertMode,
             onCancel = onExit,
             onFinished = { stage = 2 }
         )
@@ -161,7 +162,11 @@ private fun PatchSelectionScreen(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text("أداة التعديل", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text("تم تحديد ${selected.size} من التعديلات", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (expertMode) "تم تحديد ${selected.size} من التعديلات" else "الوضع البسيط — التحديد الموصى به",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         LazyColumn(
@@ -219,38 +224,48 @@ private fun PatchSelectionScreen(
                     }
                 }
             }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("التعديلات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Row {
-                        TextButton(onClick = {
-                            onSelectedChange(MockData.youtubePatches.filter { it.compatible }.map { it.name }.toSet())
-                        }) { Text("الكل") }
-                        TextButton(onClick = {
-                            onSelectedChange(MockData.youtubePatches.filter { it.defaultSelected && it.compatible }.map { it.name }.toSet())
-                        }) { Text("الموصى بها") }
-                        TextButton(onClick = { onSelectedChange(emptySet()) }) { Text("لا شيء") }
+            if (expertMode) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("التعديلات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Row {
+                            TextButton(onClick = {
+                                onSelectedChange(MockData.youtubePatches.filter { it.compatible }.map { it.name }.toSet())
+                            }) { Text("الكل") }
+                            TextButton(onClick = {
+                                onSelectedChange(MockData.youtubePatches.filter { it.defaultSelected && it.compatible }.map { it.name }.toSet())
+                            }) { Text("الموصى بها") }
+                            TextButton(onClick = { onSelectedChange(emptySet()) }) { Text("لا شيء") }
+                        }
                     }
                 }
-            }
-            if (!expertMode) {
-                item {
-                    Text(
-                        "يستخدم الوضع البسيط التحديد الموصى به. فعّل وضع الخبير من الإعدادات لتغيير خيارات كل تعديل — يمكنك مراجعة القائمة هنا.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                items(MockData.youtubePatches, key = { it.name }) { patch ->
+                    PatchRow(
+                        patch = patch,
+                        checked = patch.name in selected,
+                        onToggle = { on ->
+                            onSelectedChange(if (on) selected + patch.name else selected - patch.name)
+                        },
+                        onOptions = { optionsPatch = patch }
                     )
                 }
-            }
-            items(MockData.youtubePatches, key = { it.name }) { patch ->
-                PatchRow(
-                    patch = patch,
-                    checked = patch.name in selected,
-                    onToggle = { on ->
-                        onSelectedChange(if (on) selected + patch.name else selected - patch.name)
-                    },
-                    onOptions = { optionsPatch = patch }
-                )
+            } else {
+                // Simple mode: no patch list — a summary of what will be applied.
+                item {
+                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SummaryLine("التعديلات الموصى بها", "${selected.size} تعديل")
+                            SummaryLine("المصدر", "Morphe Patches")
+                            SummaryLine("الإصدار المستهدف", "v${app.suggestedVersion}")
+                            Text(
+                                "سيتم تطبيق التحديد الموصى به من المصدر. فعّل وضع الخبير من الإعدادات لاختيار التعديلات بنفسك.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
         Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
@@ -291,6 +306,15 @@ private fun PatchSelectionScreen(
             confirmButton = { Button(onClick = { optionsPatch = null }) { Text("حفظ") } },
             dismissButton = { TextButton(onClick = { optionsPatch = null }) { Text("إلغاء") } }
         )
+    }
+}
+
+@Composable
+private fun SummaryLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -345,6 +369,7 @@ private fun PatchRow(
 private fun PatchProgressScreen(
     app: AppEntry,
     patchCount: Int,
+    expertMode: Boolean,
     onCancel: () -> Unit,
     onFinished: () -> Unit
 ) {
@@ -375,6 +400,17 @@ private fun PatchProgressScreen(
                 if (usage.size > 28) usage.removeAt(0)
             }
         }
+    }
+
+    if (!expertMode) {
+        SimplePatchProgress(
+            app = app,
+            patchCount = patchCount,
+            currentStep = currentStep,
+            steps = steps,
+            onCancel = onCancel
+        )
+        return
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp)) {
@@ -459,6 +495,113 @@ private fun PatchProgressScreen(
             text = { SnakeGame() },
             confirmButton = { TextButton(onClick = { showGame = false }) { Text("إغلاق") } }
         )
+    }
+}
+
+private val patcherMessagesAr = listOf(
+    "تحويل تطبيقك إلى شيء رائع… 🏆",
+    "تعليم التطبيقات القديمة حيلًا جديدة… 🎩",
+    "إجراء تحسين رقمي لتطبيقك… 🔧",
+    "جارٍ تحضير سحرًا رقميًا… ☕",
+    "يوصى بأخذ استراحة قهوة… ☕",
+    "انظر إلى الخارج، الجو جميل… 🌤️",
+    "ضبط الأصفار والآحاد… 🤖",
+    "فك تشابك السباغيتي رقميًا… 🍝"
+)
+
+/** Simple-mode progress: a rotating phrase, a big circular gauge and a bottom action bar. */
+@Composable
+private fun SimplePatchProgress(
+    app: AppEntry,
+    patchCount: Int,
+    currentStep: Int,
+    steps: List<String>,
+    onCancel: () -> Unit
+) {
+    var messageIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(4000)
+            messageIndex = (messageIndex + 1) % patcherMessagesAr.size
+        }
+    }
+    val fraction = if (steps.isEmpty()) 0f else currentStep.toFloat() / steps.size
+    val completedPatches = (fraction * patchCount).toInt()
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    patcherMessagesAr[messageIndex],
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.size(280.dp),
+                    strokeWidth = 12.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "${(fraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "$completedPatches من $patchCount تعديلات",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.height(28.dp))
+            if (currentStep < steps.size) {
+                Text(
+                    steps[currentStep] + "…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (currentStep == 2) {
+                    Text(
+                        "قد تستغرق هذه الخطوة بعض الوقت. يرجى الانتظار…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+            Text(
+                app.name,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 10.dp)
+            )
+        }
+        // Bottom action bar.
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                TextButton(onClick = onCancel) { Text("الرئيسية") }
+                TextButton(onClick = onCancel) { Text("إلغاء") }
+            }
+        }
     }
 }
 

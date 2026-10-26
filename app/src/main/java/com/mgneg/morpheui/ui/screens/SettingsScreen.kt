@@ -15,12 +15,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Android
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Notifications
@@ -30,8 +34,10 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -73,6 +79,13 @@ class UiPrefs {
     var autoInstall by mutableStateOf(true)
     var detailedLog by mutableStateOf(false)
     var autoClean by mutableStateOf(false)
+    // Appearance traits, mirroring the reference appearance settings.
+    var colorAccents by mutableStateOf(true)
+    var outlines by mutableStateOf(true)
+    var blur by mutableStateOf(true)
+    var greetingPhrases by mutableStateOf(true)
+    var moreAppsCard by mutableStateOf(true)
+    var repatchNotice by mutableStateOf(true)
 }
 
 enum class SettingsSubpage(val title: String) {
@@ -108,8 +121,6 @@ fun SettingsPage(
                     SettingsNavItem(Icons.Rounded.Palette, "المظهر", "شكل تطبيق Morphe") { onOpenSubpage(SettingsSubpage.APPEARANCE) }
                     SettingsDivider()
                     SettingsNavItem(Icons.Rounded.Notifications, "الإشعارات", "كيف يحافظ Morphe على اطّلاعك") { onOpenSubpage(SettingsSubpage.NOTIFICATIONS) }
-                    SettingsDivider()
-                    SettingsValueItem(Icons.Rounded.Language, "اللغة", "العربية") { langDialog = true }
                 }
             }
             item {
@@ -227,26 +238,76 @@ fun SettingsSubpageScreen(
             when (subpage) {
                 SettingsSubpage.APPEARANCE -> item {
                     Column {
-                        SettingsSection("السمة", Icons.Rounded.Palette) {
-                            RadioRow("النظام", prefs.themeMode == ThemeMode.SYSTEM) { prefs.themeMode = ThemeMode.SYSTEM }
+                        SettingsSection("العرض", Icons.Rounded.Visibility) {
+                            SettingsValueItem(Icons.Rounded.Language, "لغة التطبيق", "العربية") { }
+                        }
+                        SettingsSection("المظهر", Icons.Rounded.Palette) {
+                            RadioRow("سمة النظام", prefs.themeMode == ThemeMode.SYSTEM) { prefs.themeMode = ThemeMode.SYSTEM }
                             SettingsDivider()
                             RadioRow("فاتح", prefs.themeMode == ThemeMode.LIGHT) { prefs.themeMode = ThemeMode.LIGHT }
                             SettingsDivider()
                             RadioRow("داكن", prefs.themeMode == ThemeMode.DARK) { prefs.themeMode = ThemeMode.DARK }
-                        }
-                        SettingsSection("النمط", Icons.Rounded.Palette) {
+                            SettingsDivider()
+                            SettingsValueItem(Icons.Rounded.ColorLens, "لون التمييز", "أزرق") { }
+                            SettingsDivider()
                             SettingsSwitchItem(
                                 checked = prefs.monochrome,
                                 onToggle = { prefs.monochrome = it },
-                                title = "وضع البومة الليلية",
-                                summary = "يحوّل الواجهة وبطاقات التطبيقات إلى درجات محايدة أحادية اللون"
+                                title = "اسود نقي",
+                                summary = "استخدام خلفيات سوداء حقيقية وبطاقات بدرجات محايدة"
                             )
+                            SettingsDivider()
+                            SettingsSwitchItem(
+                                checked = prefs.colorAccents,
+                                onToggle = { prefs.colorAccents = it },
+                                title = "ألوان التطبيقات والمصادر",
+                                summary = "يستخدم لون كل تطبيق ومصدره بدلًا من لون التمييز"
+                            )
+                            SettingsDivider()
+                            SettingsValueItem(Icons.Rounded.Style, "ألوان بطاقة التطبيق", "افتراضي") { }
                             SettingsDivider()
                             SettingsSwitchItem(
                                 checked = prefs.dynamicColor,
                                 onToggle = { prefs.dynamicColor = it },
                                 title = "اللون الديناميكي",
-                                summary = "استخدام ألوان خلفية الجهاز (يُعطّل مع وضع البومة الليلية)"
+                                summary = "استخدام ألوان خلفية الجهاز (يُعطّل مع الأسود النقي)"
+                            )
+                        }
+                        SettingsSection("التأثيرات", Icons.Rounded.AutoAwesome) {
+                            SettingsSwitchItem(
+                                checked = prefs.outlines,
+                                onToggle = { prefs.outlines = it },
+                                title = "الخطوط المحيطة",
+                                summary = null
+                            )
+                            SettingsDivider()
+                            SettingsSwitchItem(
+                                checked = prefs.blur,
+                                onToggle = { prefs.blur = it },
+                                title = "الضبابية",
+                                summary = null
+                            )
+                        }
+                        SettingsSection("الشاشة الرئيسية", Icons.Rounded.Home) {
+                            SettingsSwitchItem(
+                                checked = prefs.greetingPhrases,
+                                onToggle = { prefs.greetingPhrases = it },
+                                title = "عبارات الترحيب",
+                                summary = "عبارات تتغير على مدار اليوم أعلى قائمة التطبيقات"
+                            )
+                            SettingsDivider()
+                            SettingsSwitchItem(
+                                checked = prefs.repatchNotice,
+                                onToggle = { prefs.repatchNotice = it },
+                                title = "إشعار إعادة التعديل",
+                                summary = "تنبيه عند الحاجة لإعادة تعديل تطبيق"
+                            )
+                            SettingsDivider()
+                            SettingsSwitchItem(
+                                checked = prefs.moreAppsCard,
+                                onToggle = { prefs.moreAppsCard = it },
+                                title = "بطاقة المزيد من التطبيقات",
+                                summary = "بطاقة في نهاية قائمة التطبيقات"
                             )
                         }
                     }
@@ -350,7 +411,7 @@ fun SettingsSubpageScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "الإصدار 1.1.0 — نسخة واجهة تجريبية",
+                            "الإصدار 1.2.0 — نسخة واجهة تجريبية",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)

@@ -84,6 +84,7 @@ fun PageHeader(
     search: SearchFieldState? = null,
     searchLabel: String = "بحث",
     onBack: (() -> Unit)? = null,
+    subtitle: String? = null,
     trailing: @Composable (() -> Unit)? = null
 ) {
     Column(
@@ -98,12 +99,20 @@ fun PageHeader(
                 CircleIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "رجوع", onBack)
                 Spacer(Modifier.width(12.dp))
             }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (search != null && !search.expanded) {
                 CircleIconButton(Icons.Rounded.Search, searchLabel, { search.expanded = true })
             }

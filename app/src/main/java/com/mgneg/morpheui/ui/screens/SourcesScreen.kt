@@ -1,5 +1,7 @@
 package com.mgneg.morpheui.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +20,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mgneg.morpheui.ui.components.CircleIconButton
@@ -81,9 +86,26 @@ fun SourcesPage(
                 title = "المصادر",
                 search = search,
                 searchLabel = "بحث في المصادر",
+                subtitle = when (sources.size) {
+                    1 -> "مصدر واحد"
+                    2 -> "مصدران"
+                    in 3..10 -> "${sources.size} مصادر"
+                    else -> "${sources.size} مصدرًا"
+                },
                 trailing = {
                     Spacer(Modifier.width(10.dp))
-                    CircleIconButton(Icons.Rounded.Refresh, "تحديث المصادر", { updating = true })
+                    CircleIconButton(Icons.Rounded.Sort, "فرز", { onDemoAction("فرز المصادر غير متاح في هذا العرض التجريبي") })
+                    Spacer(Modifier.width(10.dp))
+                    Surface(
+                        onClick = { addOpen = true },
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Add, contentDescription = "إضافة مصدر", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
                 }
             )
             LazyColumn(
@@ -136,12 +158,6 @@ fun SourcesPage(
             }
         }
 
-        ExtendedFloatingActionButton(
-            onClick = { addOpen = true },
-            icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-            text = { Text("إضافة مصدر") },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset.dp + 8.dp)
-        )
     }
 
     if (addOpen) {
@@ -194,61 +210,97 @@ private fun SourceCard(
     onUpdate: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = colors.surfaceContainerHigh,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Header: tap folds the card open, like the reference bundle cards.
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(colors.surfaceContainerHighest),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.Extension, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(source.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        source.url,
+                        "الإصدار ${source.version}",
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant,
                         maxLines = 1
                     )
                 }
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "خيارات")
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("تحديث") },
-                            leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                            onClick = { menuOpen = false; onUpdate() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("حذف") },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                            onClick = { menuOpen = false; onDelete() }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 if (source.official) {
                     StateBadge("رسمي", colors.primaryContainer, colors.onPrimaryContainer)
+                    Spacer(Modifier.width(8.dp))
                 }
-                if (source.outdated) {
-                    StateBadge("قديم", colors.tertiaryContainer, colors.onTertiaryContainer)
-                }
-                Text(
-                    "الإصدار ${source.version} • ${source.appsCount} تطبيق • ${source.patchesCount} تعديل",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                Icon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "طي" else "توسيع",
+                    tint = colors.onSurfaceVariant
                 )
-                Switch(checked = source.enabled, onCheckedChange = onToggle)
+            }
+            androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.surfaceContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                            InfoLine("التعديلات", "${source.patchesCount}")
+                            InfoLine("التطبيقات", "${source.appsCount}")
+                            InfoLine("النوع", if (source.official) "رسمي" else "مخصص")
+                            InfoLine("الرابط", source.url)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(if (source.enabled) "مفعّل" else "معطّل", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Switch(checked = source.enabled, onCheckedChange = onToggle)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onUpdate) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("تحديث")
+                        }
+                        TextButton(onClick = onDelete) {
+                            Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("حذف")
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
